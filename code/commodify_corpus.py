@@ -8,6 +8,7 @@ import re
 import os
 import oyaml
 import gzip
+import sys
 
 from pprint import pprint 
 
@@ -19,15 +20,15 @@ from commodify_noDB import substitute, new_entry, label_wordlist
 
 import argparse
 
-#from commodify_noDB import commodify_text
-
 ########
 # args #
 ########
 
-args = argparse.ArgumentParser(description='Apply commodify.commodify_atf() over ATF files to produce a corpus with XML annotations')
-args.add_argument('files', metavar='N', nargs='+',
-					help='ATF files to be processed, note that not all metadata is preserved')
+args = argparse.ArgumentParser(description='Apply commodify.commodify_atf() over ATF files to produce a corpus with XML annotations. Except for the addition of a root element and the markup, the structure of the output file corresponds to the original ATF, but note that not all metadata is preserved.')
+args.add_argument('SOURCE_DIR', 
+					help='source directory holding the ATF files to be processed, note that we crawl all sub-folders. We process only files ending in ".atf"')
+args.add_argument('TARGET_DIR',  
+					help='target directory for the resulting XML files. Note that we replicate the tree structure of SOURCE_DIR and that we will not overwrite existing files')
 
 args = args.parse_args()
 
@@ -69,7 +70,21 @@ def commodify_atf( text ):
 
 	text = [ re.sub(r"@[a-zA-Z]*\s*","",word) for word in text.strip().split(" ") ]
 	text = [ re.sub("[#!?<>\[\]]","",word) for word in text ]
-	text = segment.segment( text )
+	try:
+		text = segment.segment( text )
+		  # File "commodify_corpus.py", line 182, in <module>
+			# result=commodify_atf(buffer)
+		  # File "commodify_corpus.py", line 73, in commodify_atf
+			# text = segment.segment( text )
+		  # File "/home/chiarcos/cdli-gh/mtaac_cdli_ur3_corpus/ur3_corpus_data/annotated/comm/cdli-accounting-viz/code/segment.py", line 45, in segment
+			# for system in convert.convert_sumerian.num_systems ]):
+		  # File "/home/chiarcos/cdli-gh/mtaac_cdli_ur3_corpus/ur3_corpus_data/annotated/comm/cdli-accounting-viz/code/segment.py", line 45, in <listcomp>
+			# for system in convert.convert_sumerian.num_systems ]):
+		  # File "/home/chiarcos/cdli-gh/mtaac_cdli_ur3_corpus/ur3_corpus_data/annotated/comm/cdli-accounting-viz/code/convert/number_system.py", line 27, in canParse
+			# sign = sign[ sign.index("(") + 1 : len(sign) - 1 - sign[::-1].index(")") ]
+		# ValueError: substring not found
+	except ValueError:
+		return None
 	
 	for entry_ in text:
 
@@ -139,16 +154,40 @@ def commodify_atf( text ):
 # process #
 ###########
 
-# demo only
-for file in args.files:
-	id=re.sub(r"^(.*/)?([^\/\.]+)(\..*)?$",r"\2", file)
-	with open(file, "r") as input:
-		buffer=""
-		for line in input:
-			buffer=buffer+line
-			#print(line,end="")
-		buffer=buffer+"\n"
-		#print()
+if not os.path.isdir(args.SOURCE_DIR):
+	sys.stderr.write("warning source directory "+args.SOURCE_DIR+" not found, skipping\n")
+else:
+	if not os.path.isdir(args.TARGET_DIR):
+		os.makedirs(args.TARGET_DIR)
+	for dir, subdirs, files in os.walk(args.SOURCE_DIR):
+		atfs=list(filter(lambda x: x.endswith(".atf"),files))
+		if(len(atfs)>0):
+			tgt=dir[len(args.SOURCE_DIR):]
+			tgt=os.path.join(args.TARGET_DIR, tgt) 
+			if not os.path.isdir(tgt):
+				os.makedirs(tgt)
+			for atf in atfs:
+				output=os.path.join(tgt,re.sub(r"\.atf$","",atf)+".comm")
+				atf=os.path.join(dir,atf)
+				sys.stderr.write(output+" ")
+				if os.path.isfile(output):
+					sys.stderr.write("found, skipping\n")
+				else:
+					with open(atf, "r") as input:
+						buffer=""
+						for line in input:
+							buffer=buffer+line
+						buffer=buffer+"\n"
 
-		result=commodify_atf(buffer)
-		print(result)
+						result=commodify_atf(buffer)
+						sys.stderr.write(".. ")
+						if(result==None):
+							sys.stderr.write("failed: parsing error\n");
+						else:
+							with open(output,"w") as writer:
+								writer.write(result+"\n")
+							if os.path.getsize(output)==0:
+								sys.stderr.write("failed: empty output\n")
+								os.remove(output)
+							else:
+								sys.stderr.write("ok\n")
