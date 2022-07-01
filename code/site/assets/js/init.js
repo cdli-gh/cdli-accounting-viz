@@ -1,4 +1,4 @@
-api_base_url = "http://127.0.0.1:8087";
+api_base_url = "/commodity-api";
 
 // Set initial input element values on DOM elements:
 $("#n-bins-histogram").val( params["n-bins-histogram"] );
