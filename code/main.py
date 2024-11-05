@@ -91,14 +91,13 @@ def enforce_params( required=[] ):
         def function_wrapper():
             if request.method == "POST":
                 # Enforce JSON request:
-                if not request.json:
-                    return jsonify({'error': 'Requests must be JSON formatted'}), 400
+                if not request.json and not request.form:
+                    return jsonify({'error': 'Requests must be JSON or Form Data'}), 400
 
             # Enforce required parameters:
             for param in required:
-                if (request.method == "POST" and param not in request.json) \
-                        or (request.method == "GET"  and param not in request.args):
-                        return jsonify({'error': 'Missing parameter \'%s\''%(param)}), 400
+                if (get_param(param) is None):
+                    return jsonify({'error': 'Missing parameter \'%s\''%(param)}), 400
 
             # Call wrapped function:
             return func()
@@ -133,8 +132,10 @@ def allow_jsonp(func):
 # Method-agnostic accessor for request parameters:
 
 def get_param( key ):
-    if request.method == "POST" and key in request.json:
+    if request.method == "POST" and request.json is not None and key in request.json:
         return request.json[key]
+    elif request.method == "POST" and request.form is not None and key in request.form:
+        return request.form[key]
     elif request.method == "GET":
         return request.args.get(key, None)
     return None
