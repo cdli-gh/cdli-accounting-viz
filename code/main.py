@@ -58,20 +58,14 @@ cache = Cache( app )
 ##################################################
 # SWAGGER DOCUMENTATION
 
-SWAGGER_URL = '/docs' 
-API_DEF_URL = "http://%s:%s/swagger.json" % (
-            config['swagger']['host'],
-            config['swagger']['port']
-        )
-
 swaggerui_blueprint = get_swaggerui_blueprint(
-    SWAGGER_URL,
-    API_DEF_URL,
-    config={ 
+    '.',
+    '../swagger.json',
+    config={
         'app_name': "CDLI Numeral Conversion"
     },
 )
-app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
+app.register_blueprint(swaggerui_blueprint, url_prefix='/docs')
 
 ##################################################
 # DECORATORS to enforce proper request format
